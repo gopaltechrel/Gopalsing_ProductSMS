@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gopalsing Product & Service Management</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root{--accent:#0d6efd;--muted:#6c757d}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#f8fafc}
+    .card-anim{transition:transform .18s ease,box-shadow .18s ease}
+    .card-anim:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(13,110,253,.06)}
+    .thumb{width:96px;height:72px;object-fit:cover;border-radius:8px}
+    .fade-up{animation:fadeUp .36s ease both}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .chip{display:inline-block;padding:.25rem .6rem;border-radius:999px;background:#eef2ff;color:var(--accent);font-weight:600}
+    .small-muted{font-size:.85rem;color:var(--muted)}
+    .sidebar{max-height:78vh;overflow:auto}
+    .badge-service{background:#e9f7ef;color:#0f5132;padding:.25rem .5rem;border-radius:6px}
+    .badge-product{background:#fff4e6;color:#7a4a00;padding:.25rem .5rem;border-radius:6px}
+    .grid-card{min-height:120px}
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-white bg-white shadow-sm mb-3">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="#">Gopalsing Product & Service Management</a>
+      <div class="d-flex gap-2 ms-auto">
+        <input id="globalSearch" class="form-control form-control-sm" placeholder="Search products or services" style="max-width:320px">
+        <button id="exportBtn" class="btn btn-sm btn-outline-secondary">Export</button>
+        <button id="importBtn" class="btn btn-sm btn-outline-secondary">Import</button>
+        <button id="newItemBtn" class="btn btn-sm btn-primary">Add Item</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none">
+      </div>
+    </div>
+  </nav>
+
+  <main class="container mb-5">
+    <div class="row g-3">
+      <aside class="col-lg-3 sidebar">
+        <div class="card shadow-sm card-anim mb-3">
+          <div class="card-body">
+            <h6 class="mb-2">Filters</h6>
+            <div class="mb-2"><select id="typeFilter" class="form-select form-select-sm"><option value="all">All types</option><option value="product">Products</option><option value="service">Services</option></select></div>
+            <div class="mb-2"><select id="categoryFilter" class="form-select form-select-sm"><option value="all">All categories</option></select></div>
+            <div class="mb-2"><select id="availFilter" class="form-select form-select-sm"><option value="all">All availability</option><option value="in">In stock / Available</option><option value="out">Out of stock / Busy</option></select></div>
+            <div class="d-grid gap-2"><button id="loadDemo" class="btn btn-sm btn-outline-primary">Load demo</button><button id="clearAll" class="btn btn-sm btn-outline-danger">Clear</button></div>
+            <hr>
+            <h6 class="mb-1">Quick stats</h6>
+            <div class="small-muted">Items: <strong id="statItems">0</strong></div>
+            <div class="small-muted">Products: <strong id="statProducts">0</strong></div>
+            <div class="small-muted">Services: <strong id="statServices">0</strong></div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm card-anim">
+          <div class="card-body">
+            <h6>Utilities</h6>
+            <div class="d-grid gap-2">
+              <button id="bulkUploadBtn" class="btn btn-sm btn-outline-secondary">Bulk upload (JSON)</button>
+              <button id="downloadThumbs" class="btn btn-sm btn-outline-secondary">Download thumbnails</button>
+            </div>
+            <hr>
+            <div class="small-muted">Data stored in browser. Connect to backend to persist centrally.</div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="col-lg-9">
+        <div class="mb-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Catalog</h5>
+          <div class="small-muted">Grid view with thumbnails & actions</div>
+        </div>
+
+        <div id="catalogGrid" class="row g-3"></div>
+
+        <hr>
+        <div class="card shadow-sm"><div class="card-body"><h6 class="mb-3">Activity / Debug</h6><pre id="debug" class="p-2 bg-light" style="max-height:180px;overflow:auto;display:none"></pre></div></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Item Modal -->
+  <div class="modal fade" id="itemModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
+    <form id="itemForm"><div class="modal-header"><h5 class="modal-title">Add / Edit Item</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body row g-2">
+        <input type="hidden" id="itemId">
+        <div class="col-md-6"><select id="itemType" class="form-select"><option value="product">Product</option><option value="service">Service</option></select></div>
+        <div class="col-md-6"><input id="itemName" class="form-control" placeholder="Name" required></div>
+        <div class="col-md-6"><input id="itemCategory" class="form-control" placeholder="Category (e.g. Electronics)" /></div>
+        <div class="col-md-3"><input id="itemPrice" type="number" class="form-control" placeholder="Price" /></div>
+        <div class="col-md-3"><select id="itemAvail" class="form-select"><option value="in">In Stock / Available</option><option value="out">Out of Stock / Busy</option></select></div>
+        <div class="col-12"><textarea id="itemDesc" class="form-control" placeholder="Short description"></textarea></div>
+        <div class="col-12"><input id="itemThumb" class="form-control" placeholder="Thumbnail URL (optional)" /></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-primary" type="submit">Save</button><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div></form>
+  </div></div></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Product & Service Management - single file client demo
+    const STORAGE_KEY = 'psms_v1';
+    let state = { items: [], activity: [] };
+    function uid(){ return Math.random().toString(36).slice(2,9); }
+    function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function load(){ const raw = localStorage.getItem(STORAGE_KEY); state = raw?JSON.parse(raw):{items:[],activity:[]}; }
+
+    // UI refs
+    const catalogGrid = document.getElementById('catalogGrid');
+    const categoryFilter = document.getElementById('categoryFilter');
+
+    function escapeHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function renderStats(){ const total = state.items.length; const products = state.items.filter(i=>i.type==='product').length; const services = state.items.filter(i=>i.type==='service').length; document.getElementById('statItems').textContent = total; document.getElementById('statProducts').textContent = products; document.getElementById('statServices').textContent = services; }
+
+    function renderCategoryFilter(){ const cats = [...new Set(state.items.map(i=>i.category).filter(Boolean))]; categoryFilter.innerHTML = '<option value="all">All categories</option>'; cats.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.text=c; categoryFilter.appendChild(o); }); }
+
+    function renderCatalog(){ catalogGrid.innerHTML=''; const search = document.getElementById('globalSearch').value.trim().toLowerCase(); const type = document.getElementById('typeFilter').value; const cat = categoryFilter.value; const avail = document.getElementById('availFilter').value;
+      const items = state.items.filter(i=>{
+        if(type!=='all' && i.type!==type) return false;
+        if(cat!=='all' && (i.category||'')!==cat) return false;
+        if(avail!=='all' && i.avail!==avail) return false;
+        if(search){ const hay = (i.name+' '+(i.description||'')+' '+(i.category||'')).toLowerCase(); if(!hay.includes(search)) return false; }
+        return true;
+      });
+
+      if(items.length===0){ catalogGrid.innerHTML = '<div class="col-12"><div class="alert alert-info">No items found.</div></div>'; return; }
+
+      items.forEach(i=>{
+        const col = document.createElement('div'); col.className='col-12 col-md-6 col-lg-4';
+        const card = document.createElement('div'); card.className='card grid-card card-anim fade-up';
+        card.innerHTML = `
+          <div class="card-body d-flex gap-3">
+            <img src="${i.thumb||'https://via.placeholder.com/96x72?text=No+Image'}" class="thumb" alt="thumb">
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-start">
+                <div><strong>${escapeHtml(i.name)}</strong><div class="small-muted">${escapeHtml(i.category||'')}</div></div>
+                <div class="text-end">
+                  <div class="small-muted">${i.type==='product'?'<span class=\"badge-product\">Product</span>':'<span class=\"badge-service\">Service</span>'}</div>
+                  <div class="mt-1"><strong>${i.price? '₹ ' + i.price : ''}</strong></div>
+                </div>
+              </div>
+              <p class="mt-2 mb-2 small-muted truncate">${escapeHtml(i.description||'—')}</p>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary" data-edit="${i.id}">Edit</button>
+                <button class="btn btn-sm btn-outline-danger" data-del="${i.id}">Delete</button>
+                <button class="btn btn-sm btn-outline-secondary ms-auto" data-copy="${i.id}">Copy</button>
+              </div>
+            </div>
+          </div>`;
+        col.appendChild(card); catalogGrid.appendChild(col);
+      });
+
+      renderStats(); renderCategoryFilter();
+    }
+
+    // delegated actions
+    catalogGrid.addEventListener('click',(e)=>{
+      const edit = e.target.getAttribute('data-edit'); const del = e.target.getAttribute('data-del'); const copy = e.target.getAttribute('data-copy');
+      if(edit){ const it = state.items.find(x=>x.id===edit); if(!it) return; document.getElementById('itemId').value = it.id; document.getElementById('itemType').value = it.type; document.getElementById('itemName').value = it.name; document.getElementById('itemCategory').value = it.category||''; document.getElementById('itemPrice').value = it.price||''; document.getElementById('itemAvail').value = it.avail||'in'; document.getElementById('itemDesc').value = it.description||''; document.getElementById('itemThumb').value = it.thumb||''; var md=new bootstrap.Modal(document.getElementById('itemModal')); md.show(); }
+      if(del){ if(!confirm('Delete item?')) return; state.items = state.items.filter(x=>x.id!==del); save(); renderCatalog(); logActivity('Deleted item'); }
+      if(copy){ const src = state.items.find(x=>x.id===copy); if(!src) return; const clone = {...src, id: uid(), name: src.name + ' (Copy)'}; state.items.unshift(clone); save(); renderCatalog(); logActivity('Copied item'); }
+    });
+
+    // form submit
+    document.getElementById('newItemBtn').addEventListener('click', ()=>{ document.getElementById('itemForm').reset(); document.getElementById('itemId').value=''; var md = new bootstrap.Modal(document.getElementById('itemModal')); md.show(); });
+    document.getElementById('itemForm').addEventListener('submit',(e)=>{ e.preventDefault(); const id = document.getElementById('itemId').value; const type = document.getElementById('itemType').value; const name = document.getElementById('itemName').value.trim(); const category = document.getElementById('itemCategory').value.trim(); const price = document.getElementById('itemPrice').value||null; const avail = document.getElementById('itemAvail').value; const desc = document.getElementById('itemDesc').value.trim(); const thumb = document.getElementById('itemThumb').value.trim(); if(!name) return alert('Name required'); if(id){ const it = state.items.find(x=>x.id===id); Object.assign(it,{type,name,category,price,avail,description:desc,thumb}); logActivity('Updated item'); } else { state.items.unshift({ id: uid(), type, name, category, price, avail, description:desc, thumb }); logActivity('Created item'); }
+      save(); renderCatalog(); bootstrap.Modal.getInstance(document.getElementById('itemModal')).hide(); });
+
+    // filters and search
+    document.getElementById('typeFilter').addEventListener('change', renderCatalog);
+    categoryFilter.addEventListener('change', renderCatalog);
+    document.getElementById('availFilter').addEventListener('change', renderCatalog);
+    document.getElementById('globalSearch').addEventListener('input', renderCatalog);
+
+    // load demo
+    document.getElementById('loadDemo').addEventListener('click', ()=>{
+      state.items = [
+        {id:'p1',type:'product',name:'Wireless Mouse',category:'Electronics',price:599,avail:'in',description:'Ergonomic wireless mouse',thumb:'https://via.placeholder.com/96x72?text=Mouse'},
+        {id:'p2',type:'product',name:'Office Chair',category:'Furniture',price:4999,avail:'out',description:'Comfortable swivel chair',thumb:'https://via.placeholder.com/96x72?text=Chair'},
+        {id:'s1',type:'service',name:'Laptop Repair',category:'IT Services',price:1200,avail:'in',description:'Hardware & software repair',thumb:'https://via.placeholder.com/96x72?text=Repair'},
+        {id:'s2',type:'service',name:'Home Installation',category:'Home Services',price:799,avail:'in',description:'Setup & installation',thumb:'https://via.placeholder.com/96x72?text=Install'}
+      ]; save(); renderCatalog(); alert('Demo loaded'); });
+
+    document.getElementById('clearAll').addEventListener('click', ()=>{ if(!confirm('Clear all items?')) return; state.items=[]; save(); renderCatalog(); });
+
+    // export / import
+    document.getElementById('exportBtn').addEventListener('click', ()=>{ const blob = new Blob([JSON.stringify(state.items,null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'psms-items.json'; a.click(); URL.revokeObjectURL(url); });
+    document.getElementById('importBtn').addEventListener('click', ()=>{ document.getElementById('importFile').click(); });
+    document.getElementById('importFile').addEventListener('change', async (e)=>{ const f = e.target.files[0]; if(!f) return; try{ const txt = await f.text(); const data = JSON.parse(txt); if(!Array.isArray(data)) return alert('Invalid file format'); state.items = data.map(d=>({ id: d.id || uid(), type: d.type||'product', name: d.name||'', category: d.category||'', price: d.price||null, avail: d.avail||'in', description: d.description||'', thumb: d.thumb||'' })); save(); renderCatalog(); alert('Imported'); } catch(err){ alert('Import failed'); } e.target.value=''; });
+
+    // activity log
+    function logActivity(msg){ state.activity.unshift({msg,at:Date.now()}); if(state.activity.length>200) state.activity.pop(); save(); }
+
+    // debug toggle Ctrl+D
+    window.addEventListener('keydown',(e)=>{ if(e.ctrlKey && e.key.toLowerCase()==='d'){ const dbg=document.getElementById('debug'); dbg.style.display = dbg.style.display==='none'?'block':'none'; dbg.textContent = JSON.stringify(state,null,2); } });
+
+    // initial load
+    load(); renderCatalog();
+  </script>
+</body>
+</html>
